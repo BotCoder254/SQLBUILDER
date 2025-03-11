@@ -1,24 +1,25 @@
 import { Handle, Position } from 'reactflow';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 export default function ColorChooserNode({ data, isConnectable }) {
   const [color, setColor] = useState(data.color || '#4D55CC');
 
-  const handleColorChange = (event) => {
+  const handleColorChange = useCallback((event) => {
     const newColor = event.target.value;
     setColor(newColor);
     if (data.onColorChange) {
       data.onColorChange(newColor);
     }
-  };
+  }, [data]);
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-4" style={{ borderColor: color }}>
+    <div className="bg-white rounded-lg shadow-lg p-4 border-2" style={{ borderColor: color }}>
       <Handle
         type="target"
         position={Position.Top}
         isConnectable={isConnectable}
         className="w-3 h-3"
+        style={{ backgroundColor: color }}
       />
       <div className="flex flex-col items-center">
         <label className="text-sm font-medium text-gray-700 mb-2">Color Picker</label>
@@ -35,6 +36,7 @@ export default function ColorChooserNode({ data, isConnectable }) {
         position={Position.Bottom}
         isConnectable={isConnectable}
         className="w-3 h-3"
+        style={{ backgroundColor: color }}
       />
     </div>
   );

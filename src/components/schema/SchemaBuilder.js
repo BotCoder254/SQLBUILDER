@@ -75,10 +75,12 @@ export default function SchemaBuilder() {
         const q = query(schemasRef, where('userId', '==', currentUser.uid));
         const querySnapshot = await getDocs(q);
         
-        const schemas = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        const schemas = querySnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+          .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
         
         setUserSchemas(schemas);
       } catch (error) {
@@ -150,25 +152,29 @@ export default function SchemaBuilder() {
           data: {
             ...node.data,
             label: node.data?.label || 'Untitled',
-            columns: Array.isArray(node.data?.columns) 
-              ? node.data.columns.map(column => ({
-                  name: column?.name || '',
-                  type: column?.type || 'varchar',
-                  isPrimary: Boolean(column?.isPrimary),
-                  isForeignKey: Boolean(column?.isForeignKey),
-                  referencedTable: column?.referencedTable || null,
-                }))
-              : node.type === 'tableNode' 
-                ? [{ 
-                    name: 'id', 
-                    type: 'integer', 
-                    isPrimary: true,
-                    isForeignKey: false,
-                    referencedTable: null 
-                  }]
-                : [],
             color: node.data?.color || '#4D55CC',
+            columns: node.type === 'tableNode' 
+              ? (Array.isArray(node.data?.columns) 
+                  ? node.data.columns.map(column => ({
+                      name: column?.name || '',
+                      type: column?.type || 'varchar',
+                      isPrimary: Boolean(column?.isPrimary),
+                      isForeignKey: Boolean(column?.isForeignKey),
+                      referencedTable: column?.referencedTable || null,
+                    }))
+                  : [{ 
+                      name: 'id', 
+                      type: 'integer', 
+                      isPrimary: true,
+                      isForeignKey: false,
+                      referencedTable: null 
+                    }]
+              )
+              : [],
           },
+          style: node.type === 'tableNode' 
+            ? { ...node.style, backgroundColor: node.style?.backgroundColor || '#ffffff' }
+            : node.style,
         }));
 
         // Validate and clean edges data
@@ -267,12 +273,15 @@ export default function SchemaBuilder() {
         y: Math.random() * 500,
       },
       data: {
+        label: `Color ${nodes.length + 1}`,
         color: '#4D55CC',
         onColorChange: (color) => {
           setNodes((nds) =>
             nds.map((node) =>
               node.id === `color-${nodes.length + 1}`
                 ? { ...node, data: { ...node.data, color } }
+                : node.type === 'tableNode'
+                ? { ...node, style: { ...node.style, backgroundColor: color } }
                 : node
             )
           );
@@ -357,6 +366,34 @@ export default function SchemaBuilder() {
     setEdges((els) => updateEdge(oldEdge, newConnection, els));
   }, [setEdges]);
 
+  // Update collaborators section
+  const loadCollaborators = useCallback(async () => {
+    if (!currentUser || !currentSchemaId) return;
+
+    try {
+      const schemaRef = doc(db, 'schemas', currentSchemaId);
+      const schemaDoc = await getDoc(schemaRef);
+      
+      if (schemaDoc.exists()) {
+        const collaboratorIds = schemaDoc.data().collaborators || [];
+        const collaboratorData = await Promise.all(
+          collaboratorIds.map(async (userId) => {
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            return userDoc.exists() ? { id: userId, ...userDoc.data() } : null;
+          })
+        );
+        
+        setCollaborators(collaboratorData.filter(Boolean));
+      }
+    } catch (error) {
+      console.error('Error loading collaborators:', error);
+    }
+  }, [currentUser, currentSchemaId]);
+
+  useEffect(() => {
+    loadCollaborators();
+  }, [loadCollaborators]);
+
   return (
     <div className="h-screen flex">
       {/* Sidebar */}
@@ -436,7 +473,30 @@ export default function SchemaBuilder() {
                 value={selectedNode.data.label}
                 onChange={(e) => handleTableNameChange(selectedNode.id, e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4D55CC] bg-white"
+                placeholder="Node Name"
               />
+              {selectedNode.type === 'colorChooser' && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Color</label>
+                  <input
+                    type="color"
+                    value={selectedNode.data.color}
+                    onChange={(e) => {
+                      const newColor = e.target.value;
+                      setNodes((nds) =>
+                        nds.map((node) =>
+                          node.id === selectedNode.id
+                            ? { ...node, data: { ...node.data, color: newColor } }
+                            : node.type === 'tableNode'
+                            ? { ...node, style: { ...node.style, backgroundColor: newColor } }
+                            : node
+                        )
+                      );
+                    }}
+                    className="w-full h-8 cursor-pointer rounded border border-gray-300"
+                  />
+                </div>
+              )}
               <div className="flex space-x-2">
                 <button
                   onClick={handleDuplicateNode}
