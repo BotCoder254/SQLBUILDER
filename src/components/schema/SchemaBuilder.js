@@ -307,10 +307,28 @@ export default function SchemaBuilder() {
     setNodes((nds) => [...nds, newNode]);
   }, [selectedNode, nodes]);
 
-  const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
-    []
-  );
+  const onConnect = useCallback((params) => {
+    const sourceNode = nodes.find(node => node.id === params.source);
+    const targetNode = nodes.find(node => node.id === params.target);
+
+    if (sourceNode?.type === 'colorChooser' && targetNode?.type === 'tableNode') {
+      const updatedNodes = nodes.map(node => {
+        if (node.id === targetNode.id) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              borderColor: sourceNode.data.color
+            }
+          };
+        }
+        return node;
+      });
+      setNodes(updatedNodes);
+    }
+
+    setEdges((eds) => addEdge(params, eds));
+  }, [nodes, setNodes]);
 
   const onNodeClick = (event, node) => {
     setSelectedNode(node);
@@ -395,272 +413,114 @@ export default function SchemaBuilder() {
   }, [loadCollaborators]);
 
   return (
-    <div className="h-screen flex">
-      {/* Sidebar */}
-      <motion.div
-        initial={{ x: -20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col h-full overflow-y-auto"
-      >
-        {/* Header Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center text-[#211c84] mb-4 hover:text-[#4D55CC] transition-colors px-2 py-1 rounded-lg hover:bg-gray-50 w-full"
-          >
-            <FiHome className="mr-2" />
-            Back to Dashboard
-          </button>
-          <div className="flex items-center justify-between mb-4 px-2">
-            <input
-              type="text"
-              value={schemaName}
-              onChange={(e) => handleRenameSchema(e.target.value)}
-              className="w-full text-xl font-bold text-[#211c84] py-1 border-b border-gray-200 focus:outline-none focus:border-[#4D55CC] mr-2"
-              placeholder="Schema Name"
-            />
-            {currentSchemaId && (
-              <button
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to delete this schema?')) {
-                    handleDeleteSchema(currentSchemaId);
-                  }
-                }}
-                className="text-red-500 hover:text-red-600 transition-colors p-1 rounded-lg hover:bg-red-50"
-                title="Delete Schema"
-              >
-                <FiTrash2 />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Actions Section */}
-        <div className="space-y-2 mb-6">
-          <button
-            onClick={handleAddNewTable}
-            className="w-full flex items-center justify-center bg-[#4D55CC] text-white px-4 py-2 rounded-lg hover:bg-[#211c84] transition-colors duration-300 shadow-sm"
-          >
-            <FiPlus className="mr-2" />
-            Add Table
-          </button>
-          <button
-            onClick={handleAddColorChooser}
-            className="w-full flex items-center justify-center bg-[#4D55CC] text-white px-4 py-2 rounded-lg hover:bg-[#211c84] transition-colors duration-300 shadow-sm"
-          >
-            <FiDroplet className="mr-2" />
-            Add Color Chooser
-          </button>
-          <button
-            onClick={() => setShowExportModal(true)}
-            className="w-full flex items-center justify-center bg-[#4D55CC] text-white px-4 py-2 rounded-lg hover:bg-[#211c84] transition-colors duration-300 shadow-sm"
-          >
-            <FiDownload className="mr-2" />
-            Export
-          </button>
-        </div>
-
-        {/* Selected Node Properties */}
-        {selectedNode && (
-          <div className="mb-6 bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-[#211c84] mb-4 flex items-center">
-              <FiEdit2 className="mr-2" />
-              Node Properties
-            </h3>
-            <div className="space-y-4">
-              <input
-                type="text"
-                value={selectedNode.data.label}
-                onChange={(e) => handleTableNameChange(selectedNode.id, e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4D55CC] bg-white"
-                placeholder="Node Name"
-              />
-              {selectedNode.type === 'colorChooser' && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Color</label>
-                  <input
-                    type="color"
-                    value={selectedNode.data.color}
-                    onChange={(e) => {
-                      const newColor = e.target.value;
-                      setNodes((nds) =>
-                        nds.map((node) =>
-                          node.id === selectedNode.id
-                            ? { ...node, data: { ...node.data, color: newColor } }
-                            : node.type === 'tableNode'
-                            ? { ...node, style: { ...node.style, backgroundColor: newColor } }
-                            : node
-                        )
-                      );
-                    }}
-                    className="w-full h-8 cursor-pointer rounded border border-gray-300"
-                  />
-                </div>
-              )}
-              <div className="flex space-x-2">
-                <button
-                  onClick={handleDuplicateNode}
-                  className="flex-1 flex items-center justify-center bg-[#4D55CC] text-white px-4 py-2 rounded-lg hover:bg-[#211c84] transition-colors duration-300 shadow-sm"
-                >
-                  <FiCopy className="mr-2" />
-                  Duplicate
-                </button>
-                <button
-                  onClick={() => {
-                    setNodes((nds) => nds.filter((node) => node.id !== selectedNode.id));
-                    setEdges((eds) => eds.filter(
-                      (edge) => edge.source !== selectedNode.id && edge.target !== selectedNode.id
-                    ));
-                    setSelectedNode(null);
-                  }}
-                  className="flex-1 flex items-center justify-center bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors duration-300 shadow-sm"
-                >
-                  <FiTrash2 className="mr-2" />
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* User's Schemas */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-[#211c84] mb-4 flex items-center px-2">
-            <FiDatabase className="mr-2" />
-            Your Schemas
-          </h3>
+    <div className="flex h-screen">
+      {/* Left Sidebar */}
+      <div className="w-64 bg-white border-r border-gray-200 p-4 overflow-y-auto">
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <FiDatabase className="text-indigo-600" />
+            Schema Builder
+          </h2>
           <div className="space-y-2">
-            {userSchemas.map((schema) => (
-              <button
-                key={schema.id}
-                onClick={() => navigate('/schema-builder', { state: { schema } })}
-                className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors group"
-              >
-                <div className="font-medium text-[#211c84] group-hover:text-[#4D55CC]">{schema.name}</div>
-                <div className="text-xs text-gray-500">
-                  Last modified: {new Date(schema.lastModified).toLocaleDateString()}
-                </div>
-              </button>
-            ))}
+            <button
+              onClick={handleAddNewTable}
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Add Table
+            </button>
+            <button
+              onClick={handleAddColorChooser}
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Add Color Chooser
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* Collaborators */}
-        <div className="mt-auto">
-          <h3 className="text-lg font-semibold text-[#211c84] mb-4 flex items-center px-2">
-            <FiUsers className="mr-2" />
-            Collaborators
-          </h3>
-          <div className="space-y-2">
-            {collaborators.map((user) => (
-              <div
-                key={user.id}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 rounded-lg bg-gray-50"
-              >
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="truncate">{user.email}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Flow Canvas */}
-      <div className="flex-1 h-full">
+      {/* Main Editor */}
+      <div className="flex-1 relative">
         <ReactFlow
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onEdgeUpdate={onEdgeUpdate}
-          onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
-          snapToGrid={snapToGrid}
-          snapGrid={[15, 15]}
-          minZoom={0.1}
-          maxZoom={4}
-          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+          onNodeClick={onNodeClick}
           fitView
-          proOptions={{ hideAttribution: true }}
         >
-          {showGrid && <Background />}
           <Controls />
           <MiniMap
             nodeColor={(node) => {
-              switch (node.type) {
-                case 'tableNode':
-                  return '#4D55CC';
-                case 'colorChooser':
-                  return node.data.color;
-                default:
-                  return '#fff';
+              if (node.type === 'tableNode') {
+                return node.data.borderColor || '#4D55CC';
               }
+              return '#eee';
             }}
           />
-          
-          {/* Floating Toolbar */}
-          <Panel position="top-center" className="bg-white rounded-lg shadow-lg p-2">
-            <div className="flex space-x-2">
-              <button
-                onClick={handleUndo}
-                disabled={!canUndo}
-                className="p-2 text-gray-600 hover:text-[#4D55CC] disabled:opacity-50"
-                title="Undo"
-              >
-                <FiRotateCcw />
-              </button>
-              <button
-                onClick={handleRedo}
-                disabled={!canRedo}
-                className="p-2 text-gray-600 hover:text-[#4D55CC] disabled:opacity-50"
-                title="Redo"
-              >
-                <FiRotateCw />
-              </button>
-              <div className="w-px bg-gray-200" />
-              <button
-                onClick={handleZoomIn}
-                className="p-2 text-gray-600 hover:text-[#4D55CC]"
-                title="Zoom In"
-              >
-                <FiZoomIn />
-              </button>
-              <button
-                onClick={handleZoomOut}
-                className="p-2 text-gray-600 hover:text-[#4D55CC]"
-                title="Zoom Out"
-              >
-                <FiZoomOut />
-              </button>
-              <div className="w-px bg-gray-200" />
-              <button
-                onClick={() => setShowGrid(!showGrid)}
-                className={`p-2 ${showGrid ? 'text-[#4D55CC]' : 'text-gray-600'} hover:text-[#4D55CC]`}
-                title="Toggle Grid"
-              >
-                <FiGrid />
-              </button>
-              <button
-                onClick={() => setSnapToGrid(!snapToGrid)}
-                className={`p-2 ${snapToGrid ? 'text-[#4D55CC]' : 'text-gray-600'} hover:text-[#4D55CC]`}
-                title="Toggle Snap to Grid"
-              >
-                <FiLayers />
-              </button>
-            </div>
-          </Panel>
+          <Background />
         </ReactFlow>
       </div>
 
-      {/* Export Modal */}
-      <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        nodes={nodes}
-        edges={edges}
-        schemaName={schemaName}
-      />
+      {/* Right Sidebar */}
+      <div className="w-64 bg-white border-l border-gray-200 p-4 overflow-y-auto">
+        {selectedNode && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Node Properties</h3>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Label
+                <input
+                  type="text"
+                  value={selectedNode.data.label || ''}
+                  onChange={(e) => {
+                    const updatedNodes = nodes.map((node) =>
+                      node.id === selectedNode.id
+                        ? { ...node, data: { ...node.data, label: e.target.value } }
+                        : node
+                    );
+                    setNodes(updatedNodes);
+                  }}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </label>
+              {selectedNode.type === 'colorChooser' && (
+                <label className="block text-sm font-medium text-gray-700">
+                  Color
+                  <input
+                    type="color"
+                    value={selectedNode.data.color || '#4D55CC'}
+                    onChange={(e) => {
+                      const updatedNodes = nodes.map((node) =>
+                        node.id === selectedNode.id
+                          ? { ...node, data: { ...node.data, color: e.target.value } }
+                          : node
+                      );
+                      setNodes(updatedNodes);
+                    }}
+                    className="mt-1 block w-full h-8 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+        )}
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4">Collaborators</h3>
+          {collaborators.map((collaborator) => (
+            <div
+              key={collaborator.id}
+              className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-md"
+            >
+              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                {collaborator.name.charAt(0)}
+              </div>
+              <span className="text-sm">{collaborator.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 } 

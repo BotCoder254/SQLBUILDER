@@ -66,18 +66,23 @@ export default function TableNode({ data, isConnectable, id, onTableNameChange }
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-white rounded-lg shadow-lg p-4 min-w-[250px]"
+      className="bg-white rounded-lg shadow-lg p-4"
+      style={{ 
+        borderWidth: '2px',
+        borderStyle: 'solid',
+        borderColor: data.borderColor || '#4D55CC'
+      }}
     >
       <Handle
         type="target"
         position="left"
-        style={{ background: '#4D55CC' }}
+        style={{ background: data.borderColor || '#4D55CC' }}
         isConnectable={isConnectable}
       />
       <Handle
         type="source"
         position="right"
-        style={{ background: '#4D55CC' }}
+        style={{ background: data.borderColor || '#4D55CC' }}
         isConnectable={isConnectable}
       />
 
